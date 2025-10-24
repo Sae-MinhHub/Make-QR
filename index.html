@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tạo mã QR tùy chỉnh</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Inter, sans-serif;
+      background: #0f1724;
+      color: #e6eef8;
+      text-align: center;
+      padding: 30px;
+    }
+    .container {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 16px;
+      width: 400px;
+      margin: 0 auto;
+      box-shadow: 0 0 20px #0005;
+    }
+    input, select, button {
+      margin: 8px 0;
+      padding: 10px;
+      width: 100%;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+    input[type="color"] {
+      height: 45px;
+      padding: 0;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    canvas {
+      margin-top: 15px;
+      border-radius: 12px;
+      background: white;
+    }
+    #qr-container {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🌀 Tạo mã QR Tùy chỉnh</h2>
+
+    <input id="text" type="text" placeholder="Nhập link hoặc nội dung...">
+
+    <label>🎨 Màu QR:</label>
+    <input type="color" id="color" value="#000000">
+
+    <label>🔳 Bo góc:</label>
+    <select id="corner">
+      <option value="rounded">Bo góc</option>
+      <option value="square">Không bo góc</option>
+    </select>
+
+    <label>🖼️ Ảnh giữa:</label>
+    <select id="centerImage">
+      <option value="none">Không thêm ảnh</option>
+      <option value="logo-rounded">Ảnh bo góc</option>
+      <option value="logo-square">Ảnh không bo góc</option>
+    </select>
+
+    <input type="file" id="logoFile" accept="image/*" style="display:none;">
+
+    <button onclick="generateQR()">Tạo mã QR</button>
+
+    <div id="qr-container"></div>
+
+    <button id="downloadBtn" style="display:none;">📥 Tải PNG</button>
+    <button id="copyBtn" style="display:none;">📋 Copy ảnh</button>
+  </div>
+
+  <script>
+    const textInput = document.getElementById('text');
+    const colorInput = document.getElementById('color');
+    const cornerInput = document.getElementById('corner');
+    const centerImageSelect = document.getElementById('centerImage');
+    const logoFile = document.getElementById('logoFile');
+    const qrContainer = document.getElementById('qr-container');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    let logoImage = null;
+
+    centerImageSelect.addEventListener('change', () => {
+      if (centerImageSelect.value !== 'none') {
+        logoFile.click();
+      }
+    });
+
+    logoFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          logoImage = new Image();
+          logoImage.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    async function generateQR() {
+      const text = textInput.value.trim();
+      if (!text) return alert("Vui lòng nhập nội dung hoặc link!");
+
+      qrContainer.innerHTML = "";
+      const canvas = document.createElement("canvas");
+      qrContainer.appendChild(canvas);
+
+      const color = colorInput.value;
+      const isRounded = cornerInput.value === "rounded";
+      const logoType = centerImageSelect.value;
+
+      await QRCode.toCanvas(canvas, text, {
+        color: { dark: color, light: "#ffffff" },
+        margin: 2,
+        width: 300,
+      });
+
+      const ctx = canvas.getContext("2d");
+
+      // Bo góc toàn bộ nếu chọn
+      if (isRounded) {
+        const temp = document.createElement("canvas");
+        temp.width = canvas.width;
+        temp.height = canvas.height;
+        const tctx = temp.getContext("2d");
+
+        tctx.save();
+        tctx.beginPath();
+        const r = 20;
+        tctx.moveTo(r, 0);
+        tctx.arcTo(canvas.width, 0, canvas.width, canvas.height, r);
+        tctx.arcTo(canvas.width, canvas.height, 0, canvas.height, r);
+        tctx.arcTo(0, canvas.height, 0, 0, r);
+        tctx.arcTo(0, 0, canvas.width, 0, r);
+        tctx.closePath();
+        tctx.clip();
+        tctx.drawImage(canvas, 0, 0);
+        tctx.restore();
+
+        canvas.getContext("2d").drawImage(temp, 0, 0);
+      }
+
+      // Thêm logo giữa nếu có
+      if (logoImage && logoImage.complete) {
+        const size = canvas.width * 0.25;
+        const x = (canvas.width - size) / 2;
+        const y = (canvas.height - size) / 2;
+        ctx.save();
+
+        if (logoType === "logo-rounded") {
+          const radius = 12;
+          ctx.beginPath();
+          ctx.moveTo(x + radius, y);
+          ctx.arcTo(x + size, y, x + size, y + size, radius);
+          ctx.arcTo(x + size, y + size, x, y + size, radius);
+          ctx.arcTo(x, y + size, x, y, radius);
+          ctx.arcTo(x, y, x + size, y, radius);
+          ctx.closePath();
+          ctx.clip();
+        }
+
+        ctx.drawImage(logoImage, x, y, size, size);
+        ctx.restore();
+      }
+
+      downloadBtn.style.display = "inline-block";
+      copyBtn.style.display = "inline-block";
+
+      downloadBtn.onclick = () => {
+        const link = document.createElement("a");
+        link.download = "qrcode.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      };
+
+      copyBtn.onclick = async () => {
+        canvas.toBlob(async (blob) => {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+          ]);
+          alert("Đã copy ảnh QR vào clipboard!");
+        });
+      };
+    }
+  </script>
+</body>
+</html>
