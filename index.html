@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tạo Mã QR Tuỳ Chỉnh</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 <style>
 body {
   font-family: "Segoe UI", sans-serif;
@@ -49,6 +49,9 @@ button:hover {
 #qrcode {
   margin-top: 20px;
 }
+canvas {
+  border-radius: 12px;
+}
 </style>
 </head>
 <body>
@@ -89,34 +92,38 @@ function generateQR() {
     return;
   }
 
-  qrCanvas = document.createElement('canvas');
-  QRCode.toCanvas(qrCanvas, text, {
-    width: size,
-    color: { dark: color, light: '#FFFFFF' },
-    errorCorrectionLevel: 'H'
-  }, (err) => {
-    if (err) return console.error(err);
-    if (logoFile) {
-      const ctx = qrCanvas.getContext('2d');
-      const img = new Image();
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        img.onload = function() {
-          const logoSize = size * 0.2;
-          const x = (qrCanvas.width - logoSize) / 2;
-          const y = (qrCanvas.height - logoSize) / 2;
-          ctx.fillStyle = "#fff";
-          ctx.fillRect(x, y, logoSize, logoSize);
-          ctx.drawImage(img, x, y, logoSize, logoSize);
-          qrDiv.appendChild(qrCanvas);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(logoFile);
-    } else {
-      qrDiv.appendChild(qrCanvas);
-    }
+  // Tạo mã QR bằng thư viện QRious
+  const qr = new QRious({
+    value: text,
+    size: size,
+    level: 'H',
+    background: 'white',
+    foreground: color
   });
+
+  qrCanvas = qr.canvas;
+
+  if (logoFile) {
+    const ctx = qrCanvas.getContext('2d');
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      img.onload = function() {
+        const logoSize = size * 0.2;
+        const x = (qrCanvas.width - logoSize) / 2;
+        const y = (qrCanvas.height - logoSize) / 2;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(x, y, logoSize, logoSize);
+        ctx.drawImage(img, x, y, logoSize, logoSize);
+        qrDiv.appendChild(qrCanvas);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(logoFile);
+  } else {
+    qrDiv.appendChild(qrCanvas);
+  }
 }
 
 function downloadQR() {
@@ -132,8 +139,8 @@ function copyQR() {
   qrCanvas.toBlob(blob => {
     const item = new ClipboardItem({ "image/png": blob });
     navigator.clipboard.write([item]).then(() => {
-      alert("Đã copy mã QR vào clipboard!");
-    }).catch(() => alert("Trình duyệt không hỗ trợ copy ảnh."));
+      alert("✅ Đã copy mã QR vào clipboard!");
+    }).catch(() => alert("⚠️ Trình duyệt không hỗ trợ copy ảnh."));
   });
 }
 </script>
